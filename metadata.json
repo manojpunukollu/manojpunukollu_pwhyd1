@@ -1,0 +1,8 @@
+{
+  "name": "Sentinel AI: Life-Saving Action Engine",
+  "description": "A high-precision interface that converts unstructured real-world data into verified, life-saving actions using Gemini AI.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
