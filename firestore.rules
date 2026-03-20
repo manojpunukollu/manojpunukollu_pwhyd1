@@ -1,0 +1,101 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: reports
+    // Document ID: {reportId}
+    // Fields:
+    //   - id: string (required, unique)
+    //   - userId: string (required, owner UID)
+    //   - timestamp: string (required, ISO 8601)
+    //   - input: string (required, < 5000 chars)
+    //   - summary: string (required, < 500 chars)
+    //   - riskLevel: string (required, enum: CRITICAL, HIGH, MEDIUM, LOW)
+    //   - detectedContext: string (optional, < 500 chars)
+    //   - actions: list (required, < 20 items)
+    //     - priority: string (enum)
+    //     - category: string (enum)
+    //     - action: string (< 500 chars)
+    //     - verificationStatus: string (enum)
+    //     - reasoning: string (< 1000 chars)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidAction(action) {
+      return action is map &&
+             action.priority in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] &&
+             action.category in ['MEDICAL', 'ENVIRONMENTAL', 'SECURITY', 'LOGISTICS', 'OTHER'] &&
+             action.action is string && action.action.size() < 500 &&
+             action.verificationStatus in ['VERIFIED', 'PENDING', 'UNVERIFIED'] &&
+             action.reasoning is string && action.reasoning.size() < 1000;
+    }
+
+    function isValidReport(data) {
+      return hasRequiredFields(['userId', 'timestamp', 'input', 'summary', 'riskLevel', 'actions']) &&
+             hasOnlyAllowedFields(['id', 'userId', 'timestamp', 'input', 'summary', 'riskLevel', 'actions', 'detectedContext']) &&
+             data.userId == request.auth.uid &&
+             isValidDateString(data.timestamp) &&
+             data.input is string && data.input.size() < 5000 &&
+             data.summary is string && data.summary.size() < 500 &&
+             data.riskLevel in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] &&
+             (!('detectedContext' in data) || (data.detectedContext is string && data.detectedContext.size() < 500)) &&
+             data.actions is list && data.actions.size() <= 20 &&
+             data.actions.all(action, isValidAction(action));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /reports/{reportId} {
+      // Users can only read their own reports
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Users can create their own reports
+      allow create: if isAuthenticated() && isValidReport(request.resource.data);
+      
+      // Reports are immutable once created
+      allow update, delete: if false;
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
