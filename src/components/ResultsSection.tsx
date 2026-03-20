@@ -1,35 +1,51 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { motion } from 'motion/react';
 import { AlertTriangle, Activity, CheckCircle2, ChevronRight } from 'lucide-react';
-import { SentinelResponse } from '../services/sentinelService';
+import { SentinelResponse, ActionItem } from '../services/sentinelService';
+import { getRiskColor, getPriorityColor } from '../utils/theme';
 
 interface ResultsSectionProps {
   response: SentinelResponse;
   scrollRef: React.RefObject<HTMLDivElement | null>;
 }
 
-export const ResultsSection: React.FC<ResultsSectionProps> = ({
+const ActionCard = memo(({ item, idx }: { item: ActionItem; idx: number }) => (
+  <motion.div
+    initial={{ opacity: 0, x: -30 }}
+    animate={{ opacity: 1, x: 0 }}
+    transition={{ delay: idx * 0.1 }}
+    className="group glass-panel rounded-2xl overflow-hidden hover:border-google-green/40 hover:bg-surface-hover transition-all"
+  >
+    <div className="flex flex-col sm:flex-row">
+      <div className={`sm:w-40 p-6 flex flex-col items-center justify-center gap-3 border-b sm:border-b-0 sm:border-r border-white/10 ${getPriorityColor(item.priority)}`}>
+        <span className="text-xs font-black tracking-tighter uppercase">{item.priority}</span>
+        <span className="text-[9px] font-bold uppercase opacity-70 tracking-widest">{item.category}</span>
+      </div>
+      <div className="flex-1 p-8">
+        <div className="flex items-start justify-between gap-6 mb-3">
+          <h3 className="text-xl font-bold tracking-tight">{item.action}</h3>
+          <div className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase border ${
+            item.verificationStatus === 'VERIFIED' ? 'border-google-green text-google-green' : 
+            item.verificationStatus === 'PENDING' ? 'border-google-yellow text-google-yellow' : 'border-white/20 text-white/20'
+          }`}>
+            {item.verificationStatus}
+          </div>
+        </div>
+        <p className="text-sm text-white/60 leading-relaxed font-mono">{item.reasoning}</p>
+      </div>
+      <div className="p-6 bg-black/20 flex items-center justify-center">
+        <ChevronRight className="w-6 h-6 text-white/10 group-hover:text-google-green transition-all group-hover:translate-x-1" aria-hidden="true" />
+      </div>
+    </div>
+  </motion.div>
+));
+
+ActionCard.displayName = 'ActionCard';
+
+export const ResultsSection: React.FC<ResultsSectionProps> = memo(({
   response,
   scrollRef,
 }) => {
-  const getRiskColor = (level: string) => {
-    switch (level) {
-      case 'CRITICAL': return 'text-google-red border-google-red bg-google-red/10';
-      case 'HIGH': return 'text-orange-500 border-orange-500 bg-orange-500/10';
-      case 'MEDIUM': return 'text-google-yellow border-google-yellow bg-google-yellow/10';
-      default: return 'text-google-green border-google-green bg-google-green/10';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'CRITICAL': return 'bg-google-red text-white';
-      case 'HIGH': return 'bg-orange-500 text-white';
-      case 'MEDIUM': return 'bg-google-yellow text-black';
-      default: return 'bg-google-blue text-white';
-    }
-  };
-
   return (
     <motion.div 
       initial={{ opacity: 0, y: 30 }}
@@ -70,38 +86,12 @@ export const ResultsSection: React.FC<ResultsSectionProps> = ({
         
         <div className="grid grid-cols-1 gap-6">
           {response.actions.map((item, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, x: -30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              className="group glass-panel rounded-2xl overflow-hidden hover:border-google-green/40 hover:bg-surface-hover transition-all"
-            >
-              <div className="flex flex-col sm:flex-row">
-                <div className={`sm:w-40 p-6 flex flex-col items-center justify-center gap-3 border-b sm:border-b-0 sm:border-r border-white/10 ${getPriorityColor(item.priority)}`}>
-                  <span className="text-xs font-black tracking-tighter uppercase">{item.priority}</span>
-                  <span className="text-[9px] font-bold uppercase opacity-70 tracking-widest">{item.category}</span>
-                </div>
-                <div className="flex-1 p-8">
-                  <div className="flex items-start justify-between gap-6 mb-3">
-                    <h3 className="text-xl font-bold tracking-tight">{item.action}</h3>
-                    <div className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase border ${
-                      item.verificationStatus === 'VERIFIED' ? 'border-google-green text-google-green' : 
-                      item.verificationStatus === 'PENDING' ? 'border-google-yellow text-google-yellow' : 'border-white/20 text-white/20'
-                    }`}>
-                      {item.verificationStatus}
-                    </div>
-                  </div>
-                  <p className="text-sm text-white/60 leading-relaxed font-mono">{item.reasoning}</p>
-                </div>
-                <div className="p-6 bg-black/20 flex items-center justify-center">
-                  <ChevronRight className="w-6 h-6 text-white/10 group-hover:text-google-green transition-all group-hover:translate-x-1" aria-hidden="true" />
-                </div>
-              </div>
-            </motion.div>
+            <ActionCard key={`${item.action}-${idx}`} item={item} idx={idx} />
           ))}
         </div>
       </div>
     </motion.div>
   );
-};
+});
+
+ResultsSection.displayName = 'ResultsSection';

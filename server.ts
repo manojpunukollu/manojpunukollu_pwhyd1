@@ -11,6 +11,32 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const SYSTEM_INSTRUCTION = `
+  You are Sentinel AI, a high-precision life-saving intelligence engine.
+  Your task is to analyze unstructured data (medical notes, emergency alerts, news, messy logs) and extract critical, actionable intelligence.
+  
+  Output MUST be valid JSON matching the schema.
+  
+  Risk Levels:
+  - CRITICAL: Immediate threat to life or limb.
+  - HIGH: Serious threat, urgent action required.
+  - MEDIUM: Potential threat, requires monitoring or non-urgent action.
+  - LOW: Minimal threat, routine handling.
+  
+  Categories:
+  - MEDICAL: First aid, triage, clinical advice.
+  - ENVIRONMENTAL: Weather, terrain, hazardous materials.
+  - SECURITY: Threats, safe zones, perimeter.
+  - LOGISTICS: Supply chain, transport, evacuation.
+  - OTHER: General info.
+  
+  Be concise, clinical, and direct. Prioritize speed and accuracy.
+`;
+
+// Initialize AI client once
+const apiKey = process.env.GEMINI_API_KEY;
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -38,9 +64,8 @@ async function startServer() {
   // Server-side Gemini Analysis (Protects API Key)
   app.post("/api/analyze", async (req, res) => {
     const { input, mediaData } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
 
-    if (!apiKey) {
+    if (!ai) {
       return res.status(500).json({ error: "Gemini API Key is not configured on the server." });
     }
 
@@ -59,32 +84,9 @@ async function startServer() {
     }
 
     try {
-      const ai = new GoogleGenAI({ apiKey });
       const model = "gemini-3.1-flash-lite-preview";
 
-      const systemInstruction = `
-        You are Sentinel AI, a high-precision life-saving intelligence engine.
-        Your task is to analyze unstructured data (medical notes, emergency alerts, news, messy logs) and extract critical, actionable intelligence.
-        
-        Output MUST be valid JSON matching the schema.
-        
-        Risk Levels:
-        - CRITICAL: Immediate threat to life or limb.
-        - HIGH: Serious threat, urgent action required.
-        - MEDIUM: Potential threat, requires monitoring or non-urgent action.
-        - LOW: Minimal threat, routine handling.
-        
-        Categories:
-        - MEDICAL: First aid, triage, clinical advice.
-        - ENVIRONMENTAL: Weather, terrain, hazardous materials.
-        - SECURITY: Threats, safe zones, perimeter.
-        - LOGISTICS: Supply chain, transport, evacuation.
-        - OTHER: General info.
-        
-        Be concise, clinical, and direct. Prioritize speed and accuracy.
-      `;
-
-      const contents: any[] = [{ text: input || "Analyze the provided media." }];
+      const contents: any[] = [{ text: trimmedInput || "Analyze the provided media." }];
       if (mediaData) {
         contents.push({
           inlineData: {
@@ -98,7 +100,7 @@ async function startServer() {
         model,
         contents: { parts: contents },
         config: {
-          systemInstruction,
+          systemInstruction: SYSTEM_INSTRUCTION,
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,

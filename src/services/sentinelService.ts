@@ -16,6 +16,12 @@ export interface SentinelResponse {
   detectedContext: string;
 }
 
+export interface HistoryItem extends SentinelResponse {
+  id: string;
+  timestamp: string;
+  input: string;
+}
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',

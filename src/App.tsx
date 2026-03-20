@@ -11,7 +11,8 @@ import {
   Camera, 
   Zap,
 } from 'lucide-react';
-import { processUnstructuredInput, SentinelResponse } from './services/sentinelService';
+import { processUnstructuredInput, SentinelResponse, HistoryItem } from './services/sentinelService';
+import { fetchMediaViaProxy } from './services/mediaService';
 import { TestCases } from './components/TestCases';
 import { auth, db } from './firebase';
 import { 
@@ -35,12 +36,6 @@ import { Header } from './components/Header';
 import { HistorySidebar } from './components/HistorySidebar';
 import { InputSection } from './components/InputSection';
 import { ResultsSection } from './components/ResultsSection';
-
-interface HistoryItem extends SentinelResponse {
-  id: string;
-  timestamp: string;
-  input: string;
-}
 
 export default function App() {
   // Auth State
@@ -167,16 +162,9 @@ export default function App() {
     setInput(input);
     if (mediaUrl && mimeType) {
       try {
-        const proxyUrl = `/api/proxy?url=${encodeURIComponent(mediaUrl)}`;
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error(`Failed to fetch via proxy: ${response.statusText}`);
-        
-        const blob = await response.blob();
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setMedia({ data: reader.result as string, mimeType });
-        };
-        reader.readAsDataURL(blob);
+        const { data } = await fetchMediaViaProxy(mediaUrl);
+        setMedia({ data, mimeType });
+        setError(null);
       } catch (err) {
         console.error("Failed to load test media:", err);
         setError("Failed to load test media. This might be due to an external server restriction.");

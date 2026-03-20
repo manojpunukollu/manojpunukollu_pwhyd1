@@ -1,13 +1,8 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { History, X, Clock, Trash2 } from 'lucide-react';
-import { SentinelResponse } from '../services/sentinelService';
-
-interface HistoryItem extends SentinelResponse {
-  id: string;
-  timestamp: string;
-  input: string;
-}
+import { History, X, Clock } from 'lucide-react';
+import { SentinelResponse, HistoryItem } from '../services/sentinelService';
+import { getRiskColor } from '../utils/theme';
 
 interface HistorySidebarProps {
   showHistory: boolean;
@@ -16,21 +11,12 @@ interface HistorySidebarProps {
   setResponse: (response: SentinelResponse) => void;
 }
 
-export const HistorySidebar: React.FC<HistorySidebarProps> = ({
+export const HistorySidebar: React.FC<HistorySidebarProps> = memo(({
   showHistory,
   setShowHistory,
   history,
   setResponse,
 }) => {
-  const getRiskColor = (level: string) => {
-    switch (level) {
-      case 'CRITICAL': return 'text-google-red border-google-red bg-google-red/10';
-      case 'HIGH': return 'text-orange-500 border-orange-500 bg-orange-500/10';
-      case 'MEDIUM': return 'text-google-yellow border-google-yellow bg-google-yellow/10';
-      default: return 'text-google-green border-google-green bg-google-green/10';
-    }
-  };
-
   return (
     <AnimatePresence>
       {showHistory && (
@@ -102,4 +88,6 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
       )}
     </AnimatePresence>
   );
-};
+});
+
+HistorySidebar.displayName = 'HistorySidebar';
