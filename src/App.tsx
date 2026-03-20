@@ -118,20 +118,32 @@ export default function App() {
   const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // 5MB Limit
+      if (file.size > 5 * 1024 * 1024) {
+        setError("File size exceeds 5MB limit. Please upload a smaller file.");
+        return;
+      }
+      
       const reader = new FileReader();
       reader.onloadend = () => {
         setMedia({ data: reader.result as string, mimeType: file.type });
+        setError(null);
       };
       reader.readAsDataURL(file);
     }
   }, []);
 
   const handleProcess = useCallback(async () => {
-    if (!input && !media) return;
+    const trimmedInput = input.trim();
+    if (!trimmedInput && !media) {
+      setError("Please provide either text input or media for analysis.");
+      return;
+    }
+    
     setIsProcessing(true);
     setError(null);
     try {
-      const result = await processUnstructuredInput(input, media || undefined);
+      const result = await processUnstructuredInput(trimmedInput, media || undefined);
       setResponse(result);
       setTimeout(() => {
         scrollRef.current?.scrollIntoView({ behavior: 'smooth' });

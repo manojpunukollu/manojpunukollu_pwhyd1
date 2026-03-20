@@ -21,6 +21,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
   handleImageUpload,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const MAX_CHARS = 5000;
 
   return (
     <section className="glass-panel rounded-2xl overflow-hidden" aria-labelledby="input-heading">
@@ -38,18 +39,23 @@ export const InputSection: React.FC<InputSectionProps> = ({
           <textarea
             id="intelligence-input"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => setInput(e.target.value.slice(0, MAX_CHARS))}
             placeholder="Describe the situation, paste medical history, news alerts, or messy notes..."
-            className="w-full h-48 bg-black/40 border border-white/5 rounded-xl p-5 text-sm focus:outline-none focus:border-google-green/50 transition-all resize-none placeholder:text-white/20 leading-relaxed"
+            className={`w-full h-48 bg-black/40 border rounded-xl p-5 text-sm focus:outline-none transition-all resize-none placeholder:text-white/20 leading-relaxed ${
+              input.length >= MAX_CHARS ? 'border-google-red/50 focus:border-google-red' : 'border-white/5 focus:border-google-green/50'
+            }`}
             aria-describedby="input-desc"
           />
+          <div className="absolute bottom-5 left-5 text-[10px] font-mono text-white/20">
+            {input.length} / {MAX_CHARS} CHARACTERS
+          </div>
           <p id="input-desc" className="sr-only">Enter any unstructured text data for the AI to analyze for life-saving actions.</p>
           <div className="absolute bottom-5 right-5 flex gap-2">
             <button 
               onClick={() => fileInputRef.current?.click()}
               className="p-2.5 bg-white/5 hover:bg-white/10 rounded-lg transition-all group relative border border-white/5"
-              title="Upload Media"
-              aria-label="Upload image, audio, or video for analysis"
+              title="Upload Media (Max 5MB)"
+              aria-label="Upload image, audio, or video for analysis (Max 5MB)"
             >
               <Camera className="w-5 h-5 text-white/60 group-hover:text-white" />
               <input 

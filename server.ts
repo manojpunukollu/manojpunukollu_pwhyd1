@@ -44,8 +44,18 @@ async function startServer() {
       return res.status(500).json({ error: "Gemini API Key is not configured on the server." });
     }
 
-    if (!input && !mediaData) {
+    // Input Validation
+    const trimmedInput = (input || "").trim();
+    if (!trimmedInput && !mediaData) {
       return res.status(400).json({ error: "Input or media data is required." });
+    }
+
+    if (trimmedInput.length > 5000) {
+      return res.status(400).json({ error: "Input text exceeds 5000 character limit." });
+    }
+
+    if (mediaData && mediaData.data && mediaData.data.length > 7 * 1024 * 1024) { // ~5MB base64
+      return res.status(400).json({ error: "Media data exceeds size limit." });
     }
 
     try {
