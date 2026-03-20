@@ -70,6 +70,8 @@ service cloud.firestore {
              hasOnlyAllowedFields(['id', 'userId', 'timestamp', 'input', 'summary', 'riskLevel', 'actions', 'detectedContext']) &&
              data.userId == request.auth.uid &&
              isValidDateString(data.timestamp) &&
+             // Ensure timestamp is within 5 minutes of server time
+             duration.abs(request.time - timestamp.value(data.timestamp)) < duration.value(5, 'm') &&
              data.input is string && data.input.size() < 5000 &&
              data.summary is string && data.summary.size() < 500 &&
              data.riskLevel in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] &&

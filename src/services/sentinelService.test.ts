@@ -1,12 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { processUnstructuredInput } from './sentinelService';
 import { addDoc } from 'firebase/firestore';
-import { __setMockUser, mockGenerateContent } from '../setupTests';
+import { __setMockUser } from '../setupTests';
+
+// Mock global fetch
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
 
 describe('sentinelService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     __setMockUser(null);
+    mockFetch.mockReset();
+    
+    // Default mock response for fetch
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        riskLevel: 'LOW',
+        summary: 'Test summary',
+        detectedContext: 'Test context',
+        actions: []
+      })
+    });
   });
 
   it('should process unstructured input and return a SentinelResponse', async () => {
@@ -16,6 +32,10 @@ describe('sentinelService', () => {
     expect(result).toBeDefined();
     expect(result.riskLevel).toBeDefined();
     expect(result.summary).toBe('Test summary');
+    expect(mockFetch).toHaveBeenCalledWith('/api/analyze', expect.objectContaining({
+      method: 'POST',
+      body: expect.stringContaining('Test input')
+    }));
   });
 
   it('should save to Firestore if user is authenticated', async () => {
@@ -45,37 +65,30 @@ describe('sentinelService', () => {
   it('should process input with media data', async () => {
     const input = 'Test input';
     const mediaData = { data: 'base64data', mimeType: 'image/png' };
-    const result = await processUnstructuredInput(input, mediaData);
+    await processUnstructuredInput(input, mediaData);
 
-    expect(result).toBeDefined();
-    expect(mockGenerateContent).toHaveBeenCalledWith(expect.objectContaining({
-      contents: expect.objectContaining({
-        parts: expect.arrayContaining([
-          expect.objectContaining({ text: input }),
-          expect.objectContaining({ inlineData: expect.anything() })
-        ])
-      })
+    expect(mockFetch).toHaveBeenCalledWith('/api/analyze', expect.objectContaining({
+      body: expect.stringContaining('base64data')
     }));
   });
 
-  it('should throw error if API key is invalid', async () => {
-    mockGenerateContent.mockRejectedValueOnce(new Error('API_KEY_INVALID'));
+  it('should throw error if server returns error', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: 'Internal Server Error' })
+    });
     const input = 'Test input';
-    await expect(processUnstructuredInput(input)).rejects.toThrow(/invalid/i);
+    await expect(processUnstructuredInput(input)).rejects.toThrow(/Internal Server Error/i);
   });
 
-  it('should throw error if response text is empty', async () => {
-    mockGenerateContent.mockResolvedValueOnce({ text: '' });
+  it('should throw error if response JSON is invalid', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => { throw new Error('Invalid JSON'); }
+    });
     const input = 'Test input';
-    await expect(processUnstructuredInput(input)).rejects.toThrow('Empty response from AI model.');
-  });
-
-  it('should throw error if API key is missing', async () => {
-    const originalKey = process.env.GEMINI_API_KEY;
-    process.env.GEMINI_API_KEY = '';
-    const input = 'Test input';
-    await expect(processUnstructuredInput(input)).rejects.toThrow(/missing/i);
-    process.env.GEMINI_API_KEY = originalKey;
+    await expect(processUnstructuredInput(input)).rejects.toThrow(/Invalid JSON/i);
   });
 
   it('should include provider info in Firestore error', async () => {

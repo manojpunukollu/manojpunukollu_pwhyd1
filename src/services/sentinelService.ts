@@ -1,4 +1,3 @@
-import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { collection, addDoc, getDocFromServer, doc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
@@ -84,91 +83,21 @@ export async function processUnstructuredInput(
   input: string,
   mediaData?: { data: string; mimeType: string }
 ): Promise<SentinelResponse> {
-  // Try to get the API key from various possible locations
-  // Vite's 'define' will replace these literal strings at build/dev time
-  const apiKey = (process.env.GEMINI_API_KEY) || 
-                 (process.env.VITE_GEMINI_API_KEY) || 
-                 ((import.meta as any).env?.VITE_GEMINI_API_KEY) || 
-                 "";
-  
-  if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
-    throw new Error("Gemini API Key is missing. Please ensure GEMINI_API_KEY is set in your Settings > Secrets.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
-  const model = "gemini-3.1-flash-lite-preview"; // Using the lite model for better free-tier compatibility
-
-  const systemInstruction = `
-    You are Sentinel AI, a high-precision life-saving intelligence engine.
-    Your task is to analyze unstructured data (medical notes, emergency alerts, news, messy logs) and extract critical, actionable intelligence.
-    
-    Output MUST be valid JSON matching the schema.
-    
-    Risk Levels:
-    - CRITICAL: Immediate threat to life or limb.
-    - HIGH: Serious threat, urgent action required.
-    - MEDIUM: Potential threat, requires monitoring or non-urgent action.
-    - LOW: Minimal threat, routine handling.
-    
-    Categories:
-    - MEDICAL: First aid, triage, clinical advice.
-    - ENVIRONMENTAL: Weather, terrain, hazardous materials.
-    - SECURITY: Threats, safe zones, perimeter.
-    - LOGISTICS: Supply chain, transport, evacuation.
-    - OTHER: General info.
-    
-    Be concise, clinical, and direct. Prioritize speed and accuracy.
-  `;
-
   try {
-    const contents: any[] = [{ text: input }];
-    if (mediaData) {
-      contents.push({
-        inlineData: {
-          mimeType: mediaData.mimeType,
-          data: mediaData.data.includes(",") ? mediaData.data.split(",")[1] : mediaData.data
-        }
-      });
-    }
-
-    const response = await ai.models.generateContent({
-      model,
-      contents: { parts: contents },
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            summary: { type: Type.STRING },
-            riskLevel: { type: Type.STRING, enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
-            detectedContext: { type: Type.STRING },
-            actions: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  priority: { type: Type.STRING, enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
-                  category: { type: Type.STRING, enum: ["MEDICAL", "ENVIRONMENTAL", "SECURITY", "LOGISTICS", "OTHER"] },
-                  action: { type: Type.STRING },
-                  verificationStatus: { type: Type.STRING, enum: ["VERIFIED", "PENDING", "UNVERIFIED"] },
-                  reasoning: { type: Type.STRING }
-                },
-                required: ["priority", "category", "action", "verificationStatus", "reasoning"]
-              }
-            }
-          },
-          required: ["summary", "riskLevel", "actions", "detectedContext"]
-        },
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
-      }
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ input, mediaData }),
     });
 
-    if (!response.text) {
-      throw new Error("Empty response from AI model.");
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to analyze input via server");
     }
 
-    const result = JSON.parse(response.text) as SentinelResponse;
+    const result = await response.json() as SentinelResponse;
 
     // Save to Firestore if user is logged in
     if (auth.currentUser) {
@@ -191,11 +120,6 @@ export async function processUnstructuredInput(
     return result;
   } catch (error: any) {
     console.error("Sentinel Analysis Error:", error);
-    
-    if (error.message?.includes("API key not valid") || error.message?.includes("API_KEY_INVALID")) {
-      throw new Error("The Gemini API key provided is invalid. Please check your key in Settings > Secrets.");
-    }
-    
     throw error;
   }
 }

@@ -11,7 +11,7 @@ describe('HistorySidebar Component', () => {
     {
       id: '1',
       summary: 'Test history 1',
-      riskLevel: 'HIGH',
+      riskLevel: 'HIGH' as const,
       timestamp: new Date().toISOString(),
       input: 'Test input 1',
       detectedContext: 'Context 1',
@@ -22,7 +22,7 @@ describe('HistorySidebar Component', () => {
   const defaultProps = {
     showHistory: false,
     setShowHistory: vi.fn(),
-    history: [],
+    history: [] as any[],
     setResponse: vi.fn(),
   };
 
@@ -67,9 +67,9 @@ describe('HistorySidebar Component', () => {
 
   it('renders different risk colors correctly', () => {
     const mixedHistory = [
-      { id: '1', timestamp: Date.now().toString(), riskLevel: 'CRITICAL', summary: 'C1', input: 'I1', actions: [] },
-      { id: '2', timestamp: Date.now().toString(), riskLevel: 'MEDIUM', summary: 'M1', input: 'I2', actions: [] },
-      { id: '3', timestamp: Date.now().toString(), riskLevel: 'LOW', summary: 'L1', input: 'I3', actions: [] },
+      { id: '1', timestamp: Date.now().toString(), riskLevel: 'CRITICAL' as const, summary: 'C1', input: 'I1', detectedContext: 'D1', actions: [] },
+      { id: '2', timestamp: Date.now().toString(), riskLevel: 'MEDIUM' as const, summary: 'M1', input: 'I2', detectedContext: 'D2', actions: [] },
+      { id: '3', timestamp: Date.now().toString(), riskLevel: 'LOW' as const, summary: 'L1', input: 'I3', detectedContext: 'D3', actions: [] },
     ];
     render(<HistorySidebar {...defaultProps} showHistory={true} history={mixedHistory} />);
     

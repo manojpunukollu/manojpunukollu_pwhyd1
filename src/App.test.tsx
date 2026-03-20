@@ -3,11 +3,26 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import App from './App';
 import * as authModule from 'firebase/auth';
 import { __setMockUser } from './setupTests';
+import * as sentinelService from './services/sentinelService';
+
+// Mock the sentinelService
+vi.mock('./services/sentinelService', () => ({
+  processUnstructuredInput: vi.fn(),
+  testConnection: vi.fn(),
+}));
 
 describe('App Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     __setMockUser(null);
+    
+    // Default mock for processUnstructuredInput
+    vi.mocked(sentinelService.processUnstructuredInput).mockResolvedValue({
+      riskLevel: 'LOW',
+      summary: 'Test summary',
+      detectedContext: 'Test context',
+      actions: []
+    });
   });
 
   it('renders the main header and input section', () => {
@@ -136,13 +151,12 @@ describe('App Component', () => {
   });
 
   it('does not process if input and media are empty', async () => {
-    const { processUnstructuredInput } = await import('./services/sentinelService');
     render(<App />);
-    const processBtn = screen.getByText(/Analyze/i);
+    const processBtn = screen.getByText(/Execute Sentinel Analysis/i);
     await act(async () => {
       fireEvent.click(processBtn);
     });
-    expect(processUnstructuredInput).not.toHaveBeenCalled();
+    expect(sentinelService.processUnstructuredInput).not.toHaveBeenCalled();
   });
 
   it('handles history listener error', async () => {
@@ -208,8 +222,7 @@ describe('App Component', () => {
 
   it('clears error when close button is clicked', async () => {
     // Mock service to throw error
-    const sentinelService = await import('./services/sentinelService');
-    vi.spyOn(sentinelService, 'processUnstructuredInput').mockRejectedValueOnce(new Error('Test Error'));
+    vi.mocked(sentinelService.processUnstructuredInput).mockRejectedValueOnce(new Error('Test Error'));
 
     render(<App />);
     
