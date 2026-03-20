@@ -139,7 +139,18 @@ async function startServer() {
         throw new Error("Empty response from AI model.");
       }
 
-      res.json(JSON.parse(response.text));
+      // Sanitize response text (remove markdown blocks if present)
+      let cleanText = response.text.trim();
+      if (cleanText.startsWith("```")) {
+        cleanText = cleanText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      }
+
+      try {
+        res.json(JSON.parse(cleanText));
+      } catch (parseError) {
+        console.error("Failed to parse AI response as JSON:", cleanText);
+        throw new Error("AI model returned invalid JSON format.");
+      }
     } catch (error: any) {
       console.error("Server-side Analysis Error:", error);
       res.status(500).json({ error: error.message || "Failed to analyze input" });
@@ -184,6 +195,11 @@ async function startServer() {
       console.error("Proxy error:", error);
       res.status(500).send("Failed to fetch media safely");
     }
+  });
+
+  // Catch-all for unhandled API routes (prevent HTML fallback for broken API calls)
+  app.all("/api/*", (req, res) => {
+    res.status(404).json({ error: `API Route ${req.method} ${req.url} not found` });
   });
 
   // Vite middleware for development

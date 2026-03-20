@@ -113,27 +113,33 @@ export async function processUnstructuredInput(
       throw new Error(errorMessage);
     }
 
-    const result = await response.json() as SentinelResponse;
+    const resultText = await response.text();
+    try {
+      const result = JSON.parse(resultText) as SentinelResponse;
 
-    // Save to Firestore if user is logged in
-    if (auth.currentUser) {
-      const path = 'reports';
-      try {
-        await addDoc(collection(db, path), {
-          userId: auth.currentUser.uid,
-          timestamp: new Date().toISOString(),
-          input: input.substring(0, 5000), // Enforce limit
-          summary: result.summary,
-          riskLevel: result.riskLevel,
-          detectedContext: result.detectedContext,
-          actions: result.actions
-        });
-      } catch (error) {
-        handleFirestoreError(error, OperationType.WRITE, path);
+      // Save to Firestore if user is logged in
+      if (auth.currentUser) {
+        const path = 'reports';
+        try {
+          await addDoc(collection(db, path), {
+            userId: auth.currentUser.uid,
+            timestamp: new Date().toISOString(),
+            input: input.substring(0, 5000), // Enforce limit
+            summary: result.summary,
+            riskLevel: result.riskLevel,
+            detectedContext: result.detectedContext,
+            actions: result.actions
+          });
+        } catch (error) {
+          handleFirestoreError(error, OperationType.WRITE, path);
+        }
       }
-    }
 
-    return result;
+      return result;
+    } catch (parseError) {
+      console.error("Failed to parse server response as JSON:", resultText.substring(0, 200));
+      throw new Error(`Server returned invalid JSON format: ${resultText.substring(0, 100)}...`);
+    }
   } catch (error: any) {
     console.error("Sentinel Analysis Error:", error);
     throw error;
