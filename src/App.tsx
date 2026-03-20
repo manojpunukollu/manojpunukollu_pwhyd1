@@ -22,10 +22,11 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { processUnstructuredInput, SentinelResponse, ActionItem } from './services/sentinelService';
+import { TestCases } from './components/TestCases';
 
 export default function App() {
   const [input, setInput] = useState('');
-  const [image, setImage] = useState<string | null>(null);
+  const [media, setMedia] = useState<{ data: string; mimeType: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<SentinelResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,27 +38,50 @@ export default function App() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImage(reader.result as string);
+        setMedia({ data: reader.result as string, mimeType: file.type });
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleProcess = async () => {
-    if (!input && !image) return;
+    if (!input && !media) return;
     setIsProcessing(true);
     setError(null);
     try {
-      const result = await processUnstructuredInput(input, image || undefined);
+      const result = await processUnstructuredInput(input, media || undefined);
       setResponse(result);
       setTimeout(() => {
         scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
-    } catch (err) {
-      setError('Failed to process input. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to process input. Please try again.');
       console.error(err);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleTestCaseSelect = async (input: string, mediaUrl?: string, mimeType?: string) => {
+    setInput(input);
+    if (mediaUrl && mimeType) {
+      try {
+        const proxyUrl = `/api/proxy?url=${encodeURIComponent(mediaUrl)}`;
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error(`Failed to fetch via proxy: ${response.statusText}`);
+        
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setMedia({ data: reader.result as string, mimeType });
+        };
+        reader.readAsDataURL(blob);
+      } catch (err) {
+        console.error("Failed to load test media:", err);
+        setError("Failed to load test media. This might be due to an external server restriction.");
+      }
+    } else {
+      setMedia(null);
     }
   };
 
@@ -96,7 +120,7 @@ export default function App() {
           <div className="flex items-center gap-4 text-[10px] tracking-widest uppercase text-white/60">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              System Active
+              Global Access Active
             </div>
             <div className="hidden sm:block border-l border-white/10 pl-4">
               {new Date().toLocaleTimeString()} UTC
@@ -106,62 +130,72 @@ export default function App() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+        <TestCases onSelect={handleTestCaseSelect} />
         {/* Input Section */}
         <section className="bg-[#151619] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
           <div className="p-4 border-b border-white/10 flex items-center justify-between bg-white/5">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
-              <Zap className="w-4 h-4 text-emerald-500" />
-              Input Stream
-            </div>
-            <div className="text-[10px] text-white/40 uppercase">Awaiting unstructured data...</div>
-          </div>
-          
-          <div className="p-6 space-y-6">
-            <div className="relative">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Describe the situation, paste medical history, news alerts, or messy notes..."
-                className="w-full h-40 bg-black/40 border border-white/5 rounded-lg p-4 text-sm focus:outline-none focus:border-emerald-500/50 transition-colors resize-none placeholder:text-white/20"
-              />
-              <div className="absolute bottom-4 right-4 flex gap-2">
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-2 bg-white/5 hover:bg-white/10 rounded-md transition-colors group relative"
-                  title="Upload Image/Photo"
-                >
-                  <Camera className="w-4 h-4 text-white/60 group-hover:text-white" />
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    onChange={handleImageUpload} 
-                    className="hidden" 
-                    accept="image/*"
-                  />
-                </button>
-                <button className="p-2 bg-white/5 hover:bg-white/10 rounded-md transition-colors text-white/40 cursor-not-allowed" title="Voice Input (Coming Soon)">
-                  <Mic className="w-4 h-4" />
-                </button>
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
+                <Zap className="w-4 h-4 text-emerald-500" />
+                Input Stream
               </div>
+              <div className="text-[10px] text-white/40 uppercase">Awaiting unstructured data...</div>
             </div>
+            
+            <div className="p-6 space-y-6">
+              <div className="relative">
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Describe the situation, paste medical history, news alerts, or messy notes..."
+                  className="w-full h-40 bg-black/40 border border-white/5 rounded-lg p-4 text-sm focus:outline-none focus:border-emerald-500/50 transition-colors resize-none placeholder:text-white/20"
+                />
+                <div className="absolute bottom-4 right-4 flex gap-2">
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 bg-white/5 hover:bg-white/10 rounded-md transition-colors group relative"
+                    title="Upload Media"
+                  >
+                    <Camera className="w-4 h-4 text-white/60 group-hover:text-white" />
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      onChange={handleImageUpload} 
+                      className="hidden" 
+                      accept="image/*,audio/*,video/*"
+                    />
+                  </button>
+                </div>
+              </div>
 
-            {image && (
-              <div className="relative inline-block group">
-                <img src={image} alt="Upload" className="h-32 rounded-lg border border-white/10 object-cover" />
-                <button 
-                  onClick={() => setImage(null)}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            )}
+              {media && (
+                <div className="relative inline-block group">
+                  {media.mimeType.startsWith('image/') ? (
+                    <img src={media.data} alt="Upload" className="h-32 rounded-lg border border-white/10 object-cover" />
+                  ) : media.mimeType.startsWith('audio/') ? (
+                    <div className="p-4 bg-white/5 border border-white/10 rounded-lg flex items-center gap-3">
+                      <Mic className="w-5 h-5 text-emerald-500" />
+                      <span className="text-xs text-white/60">Audio Data Loaded</span>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-white/5 border border-white/10 rounded-lg flex items-center gap-3">
+                      <Video className="w-5 h-5 text-emerald-500" />
+                      <span className="text-xs text-white/60">Video Data Loaded</span>
+                    </div>
+                  )}
+                  <button 
+                    onClick={() => setMedia(null)}
+                    className="absolute -top-2 -right-2 p-1 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
 
             <button
               onClick={handleProcess}
-              disabled={isProcessing || (!input && !image)}
+              disabled={isProcessing || (!input && !media)}
               className={`w-full py-4 rounded-lg font-bold uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${
-                isProcessing || (!input && !image)
+                isProcessing || (!input && !media)
                   ? 'bg-white/5 text-white/20 cursor-not-allowed'
                   : 'bg-emerald-500 text-black hover:bg-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
               }`}

@@ -1,6 +1,4 @@
-import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+import { GoogleGenAI, Type } from "@google/genai";
 
 export interface ActionItem {
   priority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
@@ -19,13 +17,20 @@ export interface SentinelResponse {
 
 export async function processUnstructuredInput(
   input: string,
-  imageData?: string
+  mediaData?: { data: string; mimeType: string }
 ): Promise<SentinelResponse> {
+  const apiKey = process.env.GEMINI_API_KEY || "";
+  
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is missing. Please add it to Settings > Secrets.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   const model = "gemini-3.1-pro-preview";
 
   const systemInstruction = `
     You are Sentinel AI, a high-precision life-saving intelligence engine.
-    Your task is to take messy, unstructured real-world inputs (text, descriptions of voice, traffic, weather, news, photos, or medical history) and convert them into structured, verified, and life-saving actions.
+    Your task is to take messy, unstructured real-world inputs (text, descriptions of voice, traffic, weather, news, photos, videos, or medical history) and convert them into structured, verified, and life-saving actions.
 
     Output MUST be in JSON format.
     Risk Levels: EXTREME, HIGH, MODERATE, LOW.
@@ -61,24 +66,33 @@ export async function processUnstructuredInput(
   };
 
   const contents: any[] = [{ text: input }];
-  if (imageData) {
+  if (mediaData) {
     contents.push({
       inlineData: {
-        mimeType: "image/jpeg",
-        data: imageData.split(",")[1]
+        mimeType: mediaData.mimeType,
+        data: mediaData.data.includes(",") ? mediaData.data.split(",")[1] : mediaData.data
       }
     });
   }
 
-  const result = await ai.models.generateContent({
-    model,
-    contents: { parts: contents },
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema
-    }
-  });
+  try {
+    const result = await ai.models.generateContent({
+      model,
+      contents: { parts: contents },
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema
+      }
+    });
 
-  return JSON.parse(result.text || "{}") as SentinelResponse;
+    if (!result.text) {
+      throw new Error("Empty response from AI model.");
+    }
+
+    return JSON.parse(result.text) as SentinelResponse;
+  } catch (error: any) {
+    console.error("Sentinel Intelligence Error:", error);
+    throw new Error(error.message || "Intelligence processing failed.");
+  }
 }
