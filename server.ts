@@ -108,6 +108,7 @@ async function startServer() {
               summary: { type: Type.STRING },
               riskLevel: { type: Type.STRING, enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
               detectedContext: { type: Type.STRING },
+              locationContext: { type: Type.STRING, description: "Any detected address, city, landmark or coordinates. Leave empty if none." },
               actions: {
                 type: Type.ARRAY,
                 items: {

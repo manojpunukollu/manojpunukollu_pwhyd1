@@ -14,6 +14,7 @@ export interface SentinelResponse {
   riskLevel: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
   actions: ActionItem[];
   detectedContext: string;
+  locationContext?: string;
 }
 
 export interface HistoryItem extends SentinelResponse {

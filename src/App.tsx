@@ -36,6 +36,7 @@ import { Header } from './components/Header';
 import { HistorySidebar } from './components/HistorySidebar';
 import { InputSection } from './components/InputSection';
 import { ResultsSection } from './components/ResultsSection';
+import { MapSection } from './components/MapSection';
 
 export default function App() {
   // Auth State
@@ -206,10 +207,13 @@ export default function App() {
         />
 
         {response && (
-          <ResultsSection 
-            response={response}
-            scrollRef={scrollRef}
-          />
+          <>
+            <ResultsSection 
+              response={response}
+              scrollRef={scrollRef}
+            />
+            <MapSection locationContext={response.locationContext} />
+          </>
         )}
 
         {error && (
