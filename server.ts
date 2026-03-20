@@ -37,6 +37,11 @@ const SYSTEM_INSTRUCTION = `
 const apiKey = process.env.GEMINI_API_KEY;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
+// Ensure fetch is available (Node 18+)
+if (typeof globalThis.fetch !== 'function') {
+  console.error("[SERVER] globalThis.fetch is NOT available. Please use Node 18+ or install node-fetch.");
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -198,8 +203,13 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`[SERVER] Sentinel AI Backend running on http://0.0.0.0:${PORT}`);
+    console.log(`[SERVER] Mode: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`[SERVER] API Routes: /api/health, /api/analyze, /api/proxy`);
   });
 }
 
-startServer();
+startServer().catch(err => {
+  console.error("[SERVER] Failed to start server:", err);
+  process.exit(1);
+});

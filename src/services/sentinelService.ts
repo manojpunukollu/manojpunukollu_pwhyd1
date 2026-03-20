@@ -100,8 +100,17 @@ export async function processUnstructuredInput(
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "Failed to analyze input via server");
+      let errorMessage = "Failed to analyze input via server";
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        // If response is not JSON (e.g. HTML 404), use status text
+        const text = await response.text();
+        errorMessage = `Server Error (${response.status}): ${response.statusText || 'Unknown'}`;
+        console.error("Non-JSON error response:", text.substring(0, 200));
+      }
+      throw new Error(errorMessage);
     }
 
     const result = await response.json() as SentinelResponse;
